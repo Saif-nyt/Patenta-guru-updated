@@ -38,12 +38,6 @@
 ## 🚀 Getting Started
 
 ```bash
-# Clone the repository
-git clone https://github.com/shifat-manjum/patente-bangla-italia.git
-
-# Navigate to project directory
-cd patente-bangla-italia
-
 # Install dependencies
 npm install
 
