@@ -1,0 +1,265 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans antialiased min-h-screen selection:bg-[#FB6C00] selection:text-white transition-colors duration-200;
+    /* Horizontal overflow is clipped here (propagates to the viewport) instead of on the
+       full-height app wrapper, so the compositor does not re-clip the whole app every frame. */
+    overflow-x: hidden;
+  }
+}
+
+/* Light Theme Mode - Daytime Clean High-Contrast Palette */
+/* NOTE: background-attachment is intentionally NOT "fixed".
+   Fixed-attachment theme gradients force a full background repaint on every scroll frame
+   (visible scroll lag, worst on mobile). The gradients now simply scroll with the page. */
+html.theme-light,
+body.theme-light,
+html:not(.dark):not(.theme-sepia),
+body:not(.dark):not(.theme-sepia) {
+  background-color: #F8FAFC !important;
+  color: #0F172A !important;
+  background-image: 
+    radial-gradient(ellipse at 15% 10%, rgba(251, 108, 0, 0.04) 0px, transparent 55%),
+    radial-gradient(ellipse at 85% 15%, rgba(251, 108, 0, 0.03) 0px, transparent 50%),
+    radial-gradient(ellipse at 50% 90%, rgba(245, 158, 11, 0.03) 0px, transparent 55%) !important;
+}
+
+html:not(.dark):not(.theme-sepia) .school-card,
+html:not(.dark):not(.theme-sepia) .glass-box {
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04) !important;
+}
+
+/* Sepia Reader Theme Mode - Warm Parchment / Eye-Comfort Reading Palette */
+/* NOTE: theme backgrounds are intentionally scoped to html/body only.
+   Painting them on the full-height app wrapper (or with background-attachment: fixed)
+   forced a full background repaint on every scroll frame (visible scroll lag). */
+html.theme-sepia,
+body.theme-sepia {
+  background-color: #F5EEDB !important;
+  color: #2F1B0B !important;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(180, 83, 9, 0.07) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(217, 119, 6, 0.05) 0px, transparent 50%) !important;
+}
+
+.theme-sepia .bg-white,
+.theme-sepia .school-card,
+.theme-sepia .glass-box {
+  background-color: #FCF8ED !important;
+  border-color: #DFCEAC !important;
+  box-shadow: 0 4px 20px -2px rgba(92, 61, 38, 0.06), 0 2px 6px -1px rgba(92, 61, 38, 0.04) !important;
+}
+
+.theme-sepia .bg-slate-50,
+.theme-sepia .bg-slate-100 {
+  background-color: #EFE4CC !important;
+}
+
+.theme-sepia .border-slate-200,
+.theme-sepia .border-slate-100 {
+  border-color: #DFCEAC !important;
+}
+
+.theme-sepia .text-slate-900,
+.theme-sepia .text-slate-800 {
+  color: #2F1B0B !important;
+}
+
+.theme-sepia .text-slate-700,
+.theme-sepia .text-slate-600,
+.theme-sepia .text-slate-500 {
+  color: #634C37 !important;
+}
+
+.theme-sepia .bg-orange-50 {
+  background-color: #FAECD4 !important;
+}
+
+.theme-sepia .bg-slate-900,
+.theme-sepia .bg-slate-950,
+.theme-sepia [class~="bg-slate-900"],
+.theme-sepia [class~="bg-slate-950"] {
+  background-color: #45260E !important;
+  color: #FCF8ED !important;
+}
+
+.theme-sepia [class*="border-slate-300"] {
+  border-color: #DFCEAC !important;
+}
+
+/* Adobe Dark Theme Mode - Deep Obsidian Ambient Palette */
+html.dark,
+body.dark {
+  background-color: #0D1117 !important;
+  color: #F8FAFC !important;
+  background-image: 
+    radial-gradient(ellipse at 15% 10%, rgba(229, 46, 45, 0.14) 0px, transparent 55%),
+    radial-gradient(ellipse at 85% 15%, rgba(251, 108, 0, 0.08) 0px, transparent 50%),
+    radial-gradient(ellipse at 50% 90%, rgba(217, 83, 30, 0.10) 0px, transparent 55%) !important;
+}
+
+/* Card & Surface Dark Backgrounds (Excludes buttons, links, and components with explicit dark:bg-) */
+.dark .school-card,
+.dark .glass-box,
+.dark div.bg-white:not([class*="dark:bg-"]),
+.dark section.bg-white:not([class*="dark:bg-"]),
+.dark main.bg-white:not([class*="dark:bg-"]) {
+  background-color: #12161F !important;
+  border-color: #1E2638 !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), 0 2px 6px -1px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Fallback card backgrounds for unmigrated light containers */
+.dark div.bg-slate-50:not([class*="dark:bg-"]):not(button):not(a),
+.dark div.bg-slate-100:not([class*="dark:bg-"]):not(button):not(a) {
+  background-color: #0F131D !important;
+}
+
+.dark div[class~="border-slate-200"]:not([class*="dark:border-"]),
+.dark div[class~="border-slate-100"]:not([class*="dark:border-"]) {
+  border-color: #1E2638 !important;
+}
+
+/* Fallback text colors (Only when no explicit dark:text- is present) */
+.dark .text-slate-900:not([class*="dark:text-"]):not(button):not(a),
+.dark .text-slate-800:not([class*="dark:text-"]):not(button):not(a) {
+  color: #F8FAFC !important;
+}
+
+.dark .text-slate-700:not([class*="dark:text-"]):not(button):not(a),
+.dark .text-slate-600:not([class*="dark:text-"]):not(button):not(a) {
+  color: #CBD5E1 !important;
+}
+
+.dark .text-slate-500:not([class*="dark:text-"]):not(button):not(a),
+.dark .text-slate-400:not([class*="dark:text-"]):not(button):not(a) {
+  color: #94A3B8 !important;
+}
+
+.dark .bg-orange-50:not([class*="dark:bg-"]) {
+  background-color: rgba(251, 108, 0, 0.12) !important;
+}
+
+.dark .bg-blue-50:not([class*="dark:bg-"]) {
+  background-color: rgba(37, 99, 235, 0.15) !important;
+}
+
+.dark .bg-emerald-50:not([class*="dark:bg-"]) {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+}
+
+.dark .bg-amber-50:not([class*="dark:bg-"]) {
+  background-color: rgba(245, 158, 11, 0.12) !important;
+}
+
+/* Modern Car Ambient Lighting & Slow Moving Dotted Neon Border */
+@keyframes neonDotsTrace {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -240;
+  }
+}
+
+.animate-neon-dots {
+  animation: neonDotsTrace 12s linear infinite;
+}
+
+/* Cross-browser scrollbar hiding utility */
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar,
+[class*="overflow-x-auto"]::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.no-scrollbar,
+.scrollbar-none,
+[class*="overflow-x-auto"] {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Print Optimization for Official Course Invoices and Receipts */
+@media print {
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  .no-print, header, nav, footer, aside, button, .custom-chatbot, #root > div > *:not([role="dialog"]) {
+    display: none !important;
+  }
+  [role="dialog"] {
+    position: static !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    max-height: none !important;
+    box-shadow: none !important;
+  }
+  [role="dialog"] > div {
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+  }
+  #printable-invoice {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
+/* Disable Google Translate popups, balloon tooltips, and highlights */
+.goog-te-banner-frame,
+.goog-te-menu-frame,
+.goog-te-balloon-frame,
+#goog-gt-tt,
+.goog-tooltip,
+.goog-tooltip:hover,
+.goog-text-highlight {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body {
+  top: 0px !important;
+  -webkit-touch-callout: none;
+}
+
+/* Prevent accidental text selection and browser translate contextual menus on touch */
+button,
+a,
+header,
+nav,
+[role="button"],
+.select-none {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}

@@ -1,0 +1,106 @@
+{
+  "I ciclomotori a due ruote non possono avere un motore termico di cilindrata superiore a 50 cm3": {
+    "bn": "দুই চাকার মোপেডের (Ciclomotore) ইঞ্জিনের ক্ষমতা ৫০ ঘন সেন্টিমিটার (cm3)-এর বেশি হতে পারে না।",
+    "problems": [
+      "number-50"
+    ]
+  },
+  "Il segnale raffigurato indica in 90 km/h il limite massimo di velocità su strade extraurbane secondarie": {
+    "bn": "ছবিতে দেখানো সংকেতটি অপ্রধান শহরের বাইরের সড়কে সর্বোচ্চ গতিসীমা ৯০ কিমি/ঘণ্টা নির্দেশ করে।",
+    "problems": [
+      "number-90"
+    ]
+  },
+  "Per diminuire l'inquinamento provocato dai veicoli non bisogna accelerare bruscamente durante le partenze": {
+    "bn": "যানবাহন দ্বারা সৃষ্ট দূষণ কমানোর জন্য যাত্রা শুরুর সময় হঠাৎ করে গতি বাড়ানো উচিত নয়।",
+    "problems": [
+      "negation-missing"
+    ]
+  },
+  "Nelle autovetture dotate di A.B.S. non è possibile agganciare un rimorchio privo di impianto frenante": {
+    "bn": "এ.বি.এস. (A.B.S.) যুক্ত প্রাইভেট কারে ব্রেকিং সিস্টেমবিহীন কোনো ট্রেলার (Rimorchio) যুক্ত করা সম্ভব নয়।",
+    "problems": [
+      "negation-missing"
+    ]
+  },
+  "Il segnale raffigurato preannuncia un divieto di svolta a sinistra per gli autocarri di massa superiore a 3,5 t": {
+    "bn": "ছবিতে দেখানো সংকেতটি ৩.৫ টনের বেশি ওজনের ট্রাকগুলোর জন্য বামে মোড় নেওয়ার নিষেধাজ্ঞা সম্পর্কে আগাম জানায়",
+    "problems": [
+      "number-3,5"
+    ]
+  },
+  "La patente di categoria A1 può essere conseguita da chi ha almeno 16 anni di età": {
+    "bn": "কমপক্ষে ১৬ বছর বয়স হলে A1 ক্যাটাগরির ড্রাইভিং লাইসেন্স অর্জন করা যায়",
+    "problems": [
+      "number-16"
+    ]
+  },
+  "Su strade extraurbane principali il limite massimo di velocità è di 100 km/h per le autovetture con carrello appendice": {
+    "bn": "প্রধান শহরের বাইরের সড়কে ছোট লাগেজ ট্রেলারযুক্ত প্রাইভেট কারের সর্বোচ্চ গতিসীমা ১০০ কিমি/ঘণ্টা",
+    "problems": [
+      "number-100"
+    ]
+  },
+  "Il titolare di patente di categoria A2 da almeno due anni, può conseguire la patente A che abilita alla guida di tutti i motocicli, solo se è già in possesso della patente di categoria AM ed ha più di 24 anni di età": {
+    "bn": "কমপক্ষে দুই বছর ধরে A2 ক্যাটাগরির লাইসেন্সধারী ব্যক্তি সমস্ত মোটরসাইকেল চালানোর উপযোগী A লাইসেন্স কেবল তখনই পেতে পারেন, যদি তার ইতিমধ্যে AM ক্যাটাগরির লাইসেন্স থাকে এবং বয়স ২৪ বছরের বেশি হয়",
+    "problems": [
+      "number-24"
+    ]
+  },
+  "E' possibile trainare rimorchi non immatricolati, se di massa inferiore ai 750 chilogrammi": {
+    "bn": "যদি ওজন 750 কিলোগ্রামের কম হয়, তবে রেজিস্ট্রেশনবিহীন ট্রেলার (Rimorchio) টেনে নেওয়া সম্ভব",
+    "problems": [
+      "negation-missing"
+    ]
+  },
+  "Il segnale raffigurato indica che per raggiungere Milano bisogna percorrere l'autostrada n. 472": {
+    "bn": "ছবিতে দেখানো সংকেতটি নির্দেশ করে যে মিলানো পৌঁছানোর জন্য ৪৭২ নম্বর মোটরওয়ে (Autostrada) দিয়ে যেতে হবে",
+    "problems": [
+      "number-472"
+    ]
+  },
+  "Su strade extraurbane principali il limite massimo di velocità è di 70 km/h per autovettura che traina caravan da 900 chilogrammi": {
+    "bn": "প্রধান শহরের বাইরের সড়কে (Strada extraurbana principale) ৯০০ কিলোগ্রামের ক্যারাভান টানা প্রাইভেট কারের সর্বোচ্চ গতিসীমা ৭০ কিমি/ঘণ্টা",
+    "problems": [
+      "number-70",
+      "number-900"
+    ]
+  },
+  "Ogni patente di guida ha un'attribuzione iniziale di 20 punti": {
+    "bn": "প্রতিটি ড্রাইভিং লাইসেন্সে শুরুতে ২০ পয়েন্ট বরাদ্দ থাকে",
+    "problems": [
+      "number-20"
+    ]
+  },
+  "Durante la marcia, in caso di nebbia con visibilità inferiore a 50 metri, bisogna usare la luce posteriore per nebbia, se il veicolo ne è dotato": {
+    "bn": "গাড়ি চালানোর সময়, ৫০ মিটারের কম দৃশ্যমানতার কুয়াশা থাকলে, গাড়িতে থাকলে পেছনের কুয়াশার বাতি (Luce posteriore per nebbia) ব্যবহার করা আবশ্যক",
+    "problems": [
+      "number-50"
+    ]
+  },
+  "Nelle aree pedonali possono transitare i trattori stradali, con velocità non superiore a 30 km/h": {
+    "bn": "পথচারী জোনে (Area pedonale) রোড ট্র্যাক্টর সর্বোচ্চ ৩০ কিমি/ঘণ্টা গতিতে চলাচল করতে পারে",
+    "problems": [
+      "negation-missing",
+      "number-30"
+    ]
+  },
+  "Il segnale raffigurato indica, a 150 metri, l'ingresso di un ospedale": {
+    "bn": "ছবিতে দেখানো সংকেতটি ১৫০ মিটার দূরত্বে একটি হাসপাতালের প্রবেশদ্বার নির্দেশ করে",
+    "problems": [
+      "number-150"
+    ]
+  },
+  "Per diminuire il rumore non si deve accelerare quando il veicolo è fermo": {
+    "bn": "শব্দ কমাতে গাড়িটি যখন স্থির অবস্থায় থাকে তখন এক্সিলারেটর দেওয়া (Accelerare) উচিত নয়।",
+    "problems": [
+      "negation-missing"
+    ]
+  },
+  "In presenza del segnale raffigurato non è obbligatorio dare la precedenza ai pedoni che attraversano sulle strisce pedonali": {
+    "bn": "ছবিতে দেখানো সংকেতটির উপস্থিতিতে, জেব্রা ক্রসিং দিয়ে পারাপার হওয়া পথচারীদের অগ্রাধিকার দেওয়া (Dare precedenza) বাধ্যতামূলক নয়।",
+    "problems": [
+      "negation-missing"
+    ]
+  }
+}
