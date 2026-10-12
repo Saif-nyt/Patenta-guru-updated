@@ -1,11 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 const { MongoClient } = require('mongodb');
+const { getMongoUri } = require('./_mongo_uri.cjs');
 
 const dotenv = fs.readFileSync(path.resolve(__dirname, '../.env'), 'utf8');
 const match = dotenv.match(/GEMINI_API_KEY=([^\r\n]+)/);
 const apiKey = match ? match[1].trim() : '';
-const mongoUri = 'mongodb+srv://khshifatmanjum_db_user:Dtmkv5WKtSMqpTEh@cluster0.h8ljzpx.mongodb.net/patente_bangla?retryWrites=true&w=majority';
+const mongoUri = getMongoUri();
 
 const CACHE_FILE = path.resolve(__dirname, 'pipeline_cache_en_bn.json');
 const MASTER_FILE = path.resolve(__dirname, '../patenteguru_all_questions.json');

@@ -1,6 +1,7 @@
 const { MongoClient } = require('mongodb');
+const { getMongoUri } = require('./_mongo_uri.cjs');
 
-const uri = 'mongodb+srv://khshifatmanjum_db_user:Dtmkv5WKtSMqpTEh@cluster0.h8ljzpx.mongodb.net/patente_bangla?retryWrites=true&w=majority';
+const uri = getMongoUri();
 
 // Initial sample of official Patente D ministerial questions with Italian, English and Bangla
 const initialBusQuestions = [

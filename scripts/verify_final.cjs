@@ -1,6 +1,7 @@
 const { MongoClient } = require('mongodb');
 const fs = require('fs');
-const uri = 'mongodb+srv://khshifatmanjum_db_user:Dtmkv5WKtSMqpTEh@cluster0.h8ljzpx.mongodb.net/patente_bangla?retryWrites=true&w=majority';
+const { getMongoUri } = require('./_mongo_uri.cjs');
+const uri = getMongoUri();
 
 async function verify() {
   const client = new MongoClient(uri);

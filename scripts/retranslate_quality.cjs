@@ -13,10 +13,9 @@
 const fs = require('fs');
 const path = require('path');
 const { MongoClient } = require('mongodb');
+const { getMongoUri } = require('./_mongo_uri.cjs');
 
-const MONGODB_URI =
-  process.env.MONGODB_URI ||
-  'mongodb+srv://khshifatmanjum_db_user:Dtmkv5WKtSMqpTEh@cluster0.h8ljzpx.mongodb.net/patente_bangla?retryWrites=true&w=majority';
+const MONGODB_URI = getMongoUri();
 
 const RAW_FILE = path.resolve(__dirname, 'raw_questions.json');
 const V2_FILE = path.resolve(__dirname, 'translations_v2.json');
