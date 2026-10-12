@@ -287,13 +287,18 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
   const fabRef = useRef<HTMLDivElement>(null);
+  const fabSkipOpenRef = useRef(false);
   const [isPointerDown, setIsPointerDown] = useState(false);
 
   // Unified pointer drag handlers for both desktop mouse and mobile touch
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
-    // Don't drag if clicking dismiss/close button
-    if ((e.target as HTMLElement).closest('.fab-dismiss-btn')) return;
+    // Don't drag if clicking dismiss/close button — and never let that tap open the chat
+    if ((e.target as HTMLElement).closest('.fab-dismiss-btn')) {
+      fabSkipOpenRef.current = true;
+      return;
+    }
+    fabSkipOpenRef.current = false;
 
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -348,12 +353,14 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
     } catch {}
 
     const wasDragging = isDraggingRef.current;
+    const skipOpen = fabSkipOpenRef.current;
     dragStartRef.current = null;
     setIsPointerDown(false);
     isDraggingRef.current = false;
+    fabSkipOpenRef.current = false;
 
-    // Direct, reliable tap-to-open! If user did not drag, open the chatbot immediately:
-    if (!wasDragging) {
+    // Direct, reliable tap-to-open! If user did not drag (and did not tap ✕), open the chatbot:
+    if (!wasDragging && !skipOpen) {
       setIsOpen(true);
       setIsMinimized(false);
     }
@@ -416,7 +423,26 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
         e.currentTarget.releasePointerCapture(e.pointerId);
       }
     } catch {}
+
+    const wasDragging = dockWasDraggingRef.current;
     dockDragRef.current = null;
+
+    // A plain tap on the tab restores the chat (a drag must not)
+    if (!wasDragging) {
+      setIsDocked(false);
+      setIsOpen(true);
+      setIsMinimized(false);
+    }
+  };
+
+  const handleDockPointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    try {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+    } catch {}
+    dockDragRef.current = null;
+    dockWasDraggingRef.current = false;
   };
 
   // Intelligent Response Generator & Knowledge Matcher
@@ -678,10 +704,15 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
 
   const quickActions = [
     { label: '🛑 STOP বনাম Precedenza', query: 'STOP এবং Dare Precedenza এর পার্থক্য কি?' },
-    { label: '⚠️ ফাঁদ শব্দ (Trabocchetti)', query: 'কুইজে কোন কোন ফাঁদ শব্দ থাকলে FALSO হয়?' },
-    { label: '🚗 Neopatentati গতিসীমা', query: 'নতুন লাইসেন্সধারীদের হাইওয়েতে সর্বোচ্চ গতি কত?' },
+    { label: '⚠️ ফাঁদ শব্দ (Trabocchetti)', query: 'কুইজে কোন কোন ফাঁদ শব্দ থাকলে FALSO হয়?' },
+    { label: '🚗 Neopatentati গতিসীমা', query: 'নতুন লাইসেন্সধারীদের হাইওয়েতে সর্বোচ্চ গতি কত?' },
     { label: '🍷 অ্যালকোহল লিমিট 0.0', query: 'নেওপাতেন্তাতোদের জন্য অ্যালকোহল রক্তের মাত্রা কত?' },
   ];
+
+  // Edge-aware styling so the widget always looks intentional wherever it is dropped
+  const fabNearLeftEdge = !!fabPosition && fabPosition.x < 56;
+  const DOCK_TAB_APPROX_WIDTH = 132;
+  const dockTabAtRightEdge = !fabPosition || fabPosition.x + DOCK_TAB_APPROX_WIDTH >= window.innerWidth - 16;
 
   return (
     <>
@@ -726,7 +757,7 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
             </div>
             <span
               title="Drag anywhere to move"
-              className="sm:hidden absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full bg-[#075E54] border-2 border-white/70 flex items-center justify-center shadow-md"
+              className={`sm:hidden absolute -top-1.5 ${fabNearLeftEdge ? '-right-1.5' : '-left-1.5'} w-6 h-6 rounded-full bg-[#075E54] border-2 border-white/70 flex items-center justify-center shadow-md`}
             >
               <GripVertical className="w-3.5 h-3.5 text-emerald-100" />
             </span>
@@ -1058,27 +1089,26 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
         onPointerDown={handleDockPointerDown}
         onPointerMove={handleDockPointerMove}
         onPointerUp={handleDockPointerUp}
-        onPointerCancel={handleDockPointerUp}
+        onPointerCancel={handleDockPointerCancel}
         style={
           fabPosition
             ? { position: 'fixed', left: `${fabPosition.x}px`, top: `${fabPosition.y}px`, zIndex: 45 }
             : undefined
         }
-        className={`z-40 ${fabPosition ? '' : 'fixed right-0 bottom-52 sm:bottom-48 md:bottom-6'}`}
+        className={`z-40 touch-none select-none ${fabPosition ? '' : 'fixed right-0 bottom-52 sm:bottom-48 md:bottom-6'}`}
       >
         <button
           type="button"
           onClick={(e) => {
-            // A drag must not also trigger the restore action
-            if (dockWasDraggingRef.current) {
-              e.preventDefault();
-              return;
-            }
+            // Pointer taps are handled in onPointerUp (capture-safe); this covers keyboard/AT
+            if (e.detail !== 0) return;
             setIsDocked(false);
             setIsOpen(true);
             setIsMinimized(false);
           }}
-          className="bg-[#25D366] hover:bg-[#20bd5a] text-white py-2 pl-2.5 pr-2 rounded-l-2xl shadow-2xl border-l-2 border-y-2 border-white/60 flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-grab active:cursor-grabbing group animate-fadeIn select-none touch-none"
+          className={`bg-[#25D366] hover:bg-[#20bd5a] text-white py-2 px-2.5 sm:pr-2 flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-grab active:cursor-grabbing group animate-fadeIn select-none touch-none shadow-2xl border-white/60 ${
+            dockTabAtRightEdge ? 'rounded-l-2xl border-l-2 border-y-2' : 'rounded-full border-2'
+          }`}
           title="লাইভ সাপোর্ট আবার দেখান (Drag to move • tap to open)"
           aria-label="Open live support chat"
         >
