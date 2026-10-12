@@ -110,8 +110,9 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
       if (!raw) return null;
       const parsed = JSON.parse(raw) as { x: number; y: number };
       if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
-        const x = Math.max(8, Math.min(window.innerWidth - 60, parsed.x));
-        const y = Math.max(8, Math.min(window.innerHeight - 70, parsed.y));
+        const bottomSafe = window.innerWidth < 768 ? 90 : 12;
+        const x = Math.max(8, Math.min(window.innerWidth - 128, parsed.x));
+        const y = Math.max(8, Math.min(window.innerHeight - 50 - bottomSafe, parsed.y));
         return { x, y };
       }
     } catch {}
@@ -119,9 +120,14 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
   });
 
   useEffect(() => {
-    try {
-      if (fabPosition) localStorage.setItem('patente_chatbot_fab_pos', JSON.stringify(fabPosition));
-    } catch {}
+    if (!fabPosition) return;
+    // Debounced so live dragging never blocks on synchronous localStorage writes
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem('patente_chatbot_fab_pos', JSON.stringify(fabPosition));
+      } catch {}
+    }, 250);
+    return () => clearTimeout(timer);
   }, [fabPosition]);
 
   // Remember the dragged position of the open chat window across reloads
@@ -323,10 +329,11 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
 
     if (isDraggingRef.current) {
       const bottomSafeMargin = window.innerWidth < 768 ? 85 : 16;
+      const buttonWidth = fabRef.current?.offsetWidth || 200;
       const buttonHeight = fabRef.current?.offsetHeight || 60;
 
-      // Allow dragging freely and swiping off towards the right
-      const newX = Math.max(8, Math.min(window.innerWidth - 30, dragStartRef.current.initialX + deltaX));
+      // Keep the whole pill visible anywhere inside the viewport
+      const newX = Math.max(8, Math.min(window.innerWidth - buttonWidth - 8, dragStartRef.current.initialX + deltaX));
       const newY = Math.max(8, Math.min(window.innerHeight - buttonHeight - bottomSafeMargin, dragStartRef.current.initialY + deltaY));
 
       setFabPosition({ x: newX, y: newY });
@@ -341,25 +348,75 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
     } catch {}
 
     const wasDragging = isDraggingRef.current;
-    const dragStart = dragStartRef.current;
     dragStartRef.current = null;
     setIsPointerDown(false);
     isDraggingRef.current = false;
-
-    // Check if user wiped/swiped with finger towards right (deltaX > 35) or dropped near right screen edge
-    if (wasDragging && dragStart) {
-      const deltaX = e.clientX - dragStart.startX;
-      if (deltaX > 35 || e.clientX > window.innerWidth - 75) {
-        setIsDocked(true);
-        return;
-      }
-    }
 
     // Direct, reliable tap-to-open! If user did not drag, open the chatbot immediately:
     if (!wasDragging) {
       setIsOpen(true);
       setIsMinimized(false);
     }
+  };
+
+  // Drag the docked small "Support" tab anywhere on the screen as well
+  const dockTabRef = useRef<HTMLDivElement>(null);
+  const dockDragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
+  const dockWasDraggingRef = useRef(false);
+
+  const clampDockTabPosition = useCallback((x: number, y: number) => {
+    const el = dockTabRef.current;
+    const width = el?.offsetWidth || 120;
+    const height = el?.offsetHeight || 40;
+    const bottomSafeMargin = window.innerWidth < 768 ? 85 : 12;
+    return {
+      x: Math.max(8, Math.min(window.innerWidth - width - 8, x)),
+      y: Math.max(8, Math.min(window.innerHeight - height - bottomSafeMargin, y)),
+    };
+  }, []);
+
+  const handleDockPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+
+    const rect = dockTabRef.current?.getBoundingClientRect();
+    dockDragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialX: rect?.left ?? (window.innerWidth - 120),
+      initialY: rect?.top ?? (window.innerHeight - 200),
+    };
+    dockWasDraggingRef.current = false;
+  };
+
+  const handleDockPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dockDragRef.current) return;
+
+    const deltaX = e.clientX - dockDragRef.current.startX;
+    const deltaY = e.clientY - dockDragRef.current.startY;
+
+    if (!dockWasDraggingRef.current && Math.hypot(deltaX, deltaY) > 6) {
+      dockWasDraggingRef.current = true;
+    }
+
+    if (dockWasDraggingRef.current) {
+      e.preventDefault();
+      setFabPosition(
+        clampDockTabPosition(dockDragRef.current.initialX + deltaX, dockDragRef.current.initialY + deltaY)
+      );
+    }
+  };
+
+  const handleDockPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    try {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+    } catch {}
+    dockDragRef.current = null;
   };
 
   // Intelligent Response Generator & Knowledge Matcher
@@ -662,13 +719,13 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
           >
             {/* Drag grip — inline on desktop, corner badge on mobile */}
             <div
-              title="Drag anywhere or swipe with finger to the right to hide"
+              title="Drag anywhere to move • tap ✕ to hide"
               className="hidden sm:flex items-center text-emerald-100/90 shrink-0"
             >
               <GripVertical className="w-4 h-4" />
             </div>
             <span
-              title="Drag anywhere or swipe with finger to the right to hide"
+              title="Drag anywhere to move"
               className="sm:hidden absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full bg-[#075E54] border-2 border-white/70 flex items-center justify-center shadow-md"
             >
               <GripVertical className="w-3.5 h-3.5 text-emerald-100" />
@@ -688,15 +745,16 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
               <span className="text-[10px] opacity-90 block font-bold">Replies &lt; 1 min</span>
             </div>
 
-            {/* Dock/hide button — desktop only (mobile: swipe with finger to the right edge) */}
+            {/* Hide button — available on mobile and desktop */}
             <button
               type="button"
-              className="fab-dismiss-btn hidden sm:flex p-1 ml-1 rounded-full bg-black/15 hover:bg-black/30 text-white/90 hover:text-white transition cursor-pointer shrink-0 items-center"
+              className="fab-dismiss-btn flex p-1 ml-1 rounded-full bg-black/15 hover:bg-black/30 text-white/90 hover:text-white transition cursor-pointer shrink-0 items-center"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsDocked(true);
               }}
-              title="ডানে সরিয়ে রাখুন (Wipe to right edge)"
+              title="Hide under small Support tab"
+              aria-label="Hide support button"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -993,34 +1051,48 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
         </div>
       )}
 
-    {/* Right-Edge Docked Trigger (Small nav tab — restores the support chat) */}
+    {/* Docked Support Tab (small nav) — draggable anywhere, tap to reopen chat */}
     {!isOpen && isDocked && (
-      <button
-        type="button"
-        onClick={() => {
-          setIsDocked(false);
-          setIsOpen(true);
-          setIsMinimized(false);
-        }}
-        style={{
-          top: chatWindowPos
-            ? `${Math.max(8, Math.min(window.innerHeight - 140, chatWindowPos.y))}px`
-            : fabPosition
-            ? `${Math.max(80, Math.min(window.innerHeight - 140, fabPosition.y))}px`
-            : undefined,
-        }}
-        className={`fixed right-0 ${!fabPosition && !chatWindowPos ? 'bottom-52 sm:bottom-48 md:bottom-6' : ''} z-40 bg-[#25D366] hover:bg-[#20bd5a] text-white py-2 pl-2.5 pr-2 rounded-l-2xl shadow-2xl border-l-2 border-y-2 border-white/60 flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer group animate-fadeIn`}
-        title="লাইভ সাপোর্ট আবার দেখান (Click or touch to restore Live Support)"
+      <div
+        ref={dockTabRef}
+        onPointerDown={handleDockPointerDown}
+        onPointerMove={handleDockPointerMove}
+        onPointerUp={handleDockPointerUp}
+        onPointerCancel={handleDockPointerUp}
+        style={
+          fabPosition
+            ? { position: 'fixed', left: `${fabPosition.x}px`, top: `${fabPosition.y}px`, zIndex: 45 }
+            : undefined
+        }
+        className={`z-40 ${fabPosition ? '' : 'fixed right-0 bottom-52 sm:bottom-48 md:bottom-6'}`}
       >
-        <span className="relative flex h-2 w-2 shrink-0">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
-        </span>
-        <MessageCircle className="w-4.5 h-4.5 fill-current text-white shrink-0" />
-        <span className="text-[10px] font-black uppercase tracking-tight">
-          Support
-        </span>
-      </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            // A drag must not also trigger the restore action
+            if (dockWasDraggingRef.current) {
+              e.preventDefault();
+              return;
+            }
+            setIsDocked(false);
+            setIsOpen(true);
+            setIsMinimized(false);
+          }}
+          className="bg-[#25D366] hover:bg-[#20bd5a] text-white py-2 pl-2.5 pr-2 rounded-l-2xl shadow-2xl border-l-2 border-y-2 border-white/60 flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-grab active:cursor-grabbing group animate-fadeIn select-none touch-none"
+          title="লাইভ সাপোর্ট আবার দেখান (Drag to move • tap to open)"
+          aria-label="Open live support chat"
+        >
+          <GripVertical className="w-3.5 h-3.5 text-emerald-100/80 shrink-0" />
+          <span className="relative flex h-2 w-2 shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+          </span>
+          <MessageCircle className="w-4 h-4 fill-current text-white shrink-0" />
+          <span className="text-[10px] font-black uppercase tracking-tight">
+            Support
+          </span>
+        </button>
+      </div>
     )}
   </>
 );
