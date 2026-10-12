@@ -40,6 +40,10 @@ interface PatenteChatbotProps {
   onOpenPaywall: () => void;
 }
 
+// Design size of the expanded chat window (used for viewport clamping)
+const EXPANDED_WIN_WIDTH = 460;
+const EXPANDED_WIN_HEIGHT = 540;
+
 export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
   currentTheme,
   currentUser,
@@ -127,26 +131,37 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
       if (!raw) return null;
       const parsed = JSON.parse(raw) as { x: number; y: number };
       if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
-        return { x: Math.max(8, parsed.x), y: Math.max(8, parsed.y) };
+        // A saved position may come from a different screen size — pull it back into view
+        const width = Math.min(EXPANDED_WIN_WIDTH, window.innerWidth - 16);
+        const height = Math.min(EXPANDED_WIN_HEIGHT, window.innerHeight - 160);
+        const safeBottom = window.innerWidth < 768 ? 90 : 12;
+        return {
+          x: Math.max(8, Math.min(window.innerWidth - width - 8, parsed.x)),
+          y: Math.max(8, Math.min(window.innerHeight - height - safeBottom, parsed.y)),
+        };
       }
     } catch {}
     return null;
   });
 
   useEffect(() => {
-    try {
-      if (chatWindowPos) localStorage.setItem('patente_chatbot_win_pos', JSON.stringify(chatWindowPos));
-    } catch {}
+    if (!chatWindowPos) return;
+    // Debounced so live dragging never blocks on synchronous localStorage writes
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem('patente_chatbot_win_pos', JSON.stringify(chatWindowPos));
+      } catch {}
+    }, 250);
+    return () => clearTimeout(timer);
   }, [chatWindowPos]);
 
   const chatWinRef = useRef<HTMLDivElement>(null);
   const chatDragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
   const chatWasDraggingRef = useRef(false);
+  const chatDragRafRef = useRef<number | null>(null);
+  const chatPendingPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  const clampChatPosition = useCallback((x: number, y: number) => {
-    const el = chatWinRef.current;
-    const width = el?.offsetWidth || 460;
-    const height = el?.offsetHeight || 540;
+  const clampToViewport = useCallback((x: number, y: number, width: number, height: number) => {
     const safeBottom = window.innerWidth < 768 ? 90 : 12;
     return {
       x: Math.max(8, Math.min(window.innerWidth - width - 8, x)),
@@ -154,10 +169,40 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
     };
   }, []);
 
+  // Clamp using the element's live size (works for both minimized and expanded states)
+  const clampChatPosition = useCallback(
+    (x: number, y: number) => {
+      const el = chatWinRef.current;
+      return clampToViewport(x, y, el?.offsetWidth || EXPANDED_WIN_WIDTH, el?.offsetHeight || EXPANDED_WIN_HEIGHT);
+    },
+    [clampToViewport]
+  );
+
+  // Coalesce rapid pointermove events into at most one state update per frame
+  const scheduleChatPosUpdate = useCallback((x: number, y: number) => {
+    chatPendingPosRef.current = { x, y };
+    if (chatDragRafRef.current != null) return;
+    chatDragRafRef.current = requestAnimationFrame(() => {
+      chatDragRafRef.current = null;
+      if (chatPendingPosRef.current) {
+        setChatWindowPos(chatPendingPosRef.current);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (chatDragRafRef.current != null) {
+        cancelAnimationFrame(chatDragRafRef.current);
+        chatDragRafRef.current = null;
+      }
+    };
+  }, []);
+
   // Drag the open chat window freely by its header (mouse + touch)
   const handleChatPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
-    // Header buttons and the message input must stay clickable
+    // Header buttons must stay clickable — never start a drag from them
     if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
 
     try {
@@ -180,14 +225,17 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
     const deltaX = e.clientX - chatDragRef.current.startX;
     const deltaY = e.clientY - chatDragRef.current.startY;
 
-    if (Math.hypot(deltaX, deltaY) > 6) {
+    if (!chatWasDraggingRef.current && Math.hypot(deltaX, deltaY) > 6) {
       chatWasDraggingRef.current = true;
     }
 
     if (chatWasDraggingRef.current) {
-      setChatWindowPos(
-        clampChatPosition(chatDragRef.current.initialX + deltaX, chatDragRef.current.initialY + deltaY)
+      e.preventDefault();
+      const next = clampChatPosition(
+        chatDragRef.current.initialX + deltaX,
+        chatDragRef.current.initialY + deltaY
       );
+      scheduleChatPosUpdate(next.x, next.y);
     }
   };
 
@@ -197,7 +245,29 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
         e.currentTarget.releasePointerCapture(e.pointerId);
       }
     } catch {}
+
+    // Commit the final dragged position (if any) and stop the drag session
+    if (chatWasDraggingRef.current && chatPendingPosRef.current) {
+      setChatWindowPos(chatPendingPosRef.current);
+    }
     chatDragRef.current = null;
+  };
+
+  // Minimize / restore the chat while keeping its position and re-clamping on expand
+  const toggleChatMinimize = () => {
+    if (!isMinimized) {
+      setIsMinimized(true);
+      return;
+    }
+
+    setIsMinimized(false);
+    // The window grows on expand, so pull it back inside the viewport if needed
+    setChatWindowPos((prev) => {
+      if (!prev) return prev;
+      const width = Math.min(EXPANDED_WIN_WIDTH, window.innerWidth - 16);
+      const height = Math.min(EXPANDED_WIN_HEIGHT, window.innerHeight - 160);
+      return clampToViewport(prev.x, prev.y, width, height);
+    });
   };
 
   // Keep a dragged chat window fully inside the viewport on resize/rotation
@@ -638,18 +708,20 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
       {isOpen && (
         <div
           ref={chatWinRef}
+          role="dialog"
+          aria-label="Patente Live Support chat"
           style={
             chatWindowPos
               ? { position: 'fixed', left: `${chatWindowPos.x}px`, top: `${chatWindowPos.y}px`, zIndex: 60 }
               : undefined
           }
-          className={`flex flex-col bg-[#EFEAE2] dark:bg-[#0B141A] border border-emerald-800/40 rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 ${
-            chatWindowPos ? '' : 'fixed bottom-3 sm:bottom-6 right-2 sm:right-6 z-50'
+          className={`flex flex-col bg-[#EFEAE2] dark:bg-[#0B141A] border border-emerald-800/40 rounded-3xl shadow-2xl overflow-hidden z-[60] transition-[width,height,box-shadow,opacity] duration-300 ${
+            chatWindowPos ? '' : 'fixed bottom-3 sm:bottom-6 right-2 sm:right-6'
           } ${
             currentTheme === 'sepia' ? 'theme-sepia' : currentTheme === 'dark' ? 'dark' : ''
           } ${
             isMinimized
-              ? 'w-72 sm:w-80 h-16'
+              ? 'w-72 sm:w-80'
               : 'w-[94vw] sm:w-[420px] md:w-[460px] h-[540px] max-h-[calc(100vh-160px)] md:max-h-[85vh]'
           }`}
         >
@@ -659,8 +731,16 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
             onPointerMove={handleChatPointerMove}
             onPointerUp={handleChatPointerUp}
             onPointerCancel={handleChatPointerUp}
+            onClick={(e) => {
+              // Ignore clicks that started on header controls (they handle themselves)
+              if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
+              // Clicking the collapsed bar restores the chat (but a drag must not)
+              if (isMinimized && !chatWasDraggingRef.current) {
+                toggleChatMinimize();
+              }
+            }}
             className="bg-[#075E54] dark:bg-[#1F2C34] p-3 sm:p-3.5 text-white flex items-center justify-between shadow-md shrink-0 select-none touch-none cursor-grab active:cursor-grabbing"
-            title="Drag to move the chat anywhere"
+            title={isMinimized ? 'Expand support chat (or drag to move)' : 'Drag to move the chat anywhere'}
           >
             <div className="flex items-center gap-2.5">
               <div className="relative">
@@ -672,13 +752,17 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
               <div className="text-left">
                 <div className="flex items-center gap-1.5">
                   <h4 className="font-bold text-sm tracking-tight">Patente Live Support</h4>
-                  <span className="text-[10px] bg-emerald-600/80 px-1.5 py-0.2 rounded font-mono font-bold">
-                    Official
-                  </span>
+                  {!isMinimized && (
+                    <span className="text-[10px] bg-emerald-600/80 px-1.5 py-0.2 rounded font-mono font-bold">
+                      Official
+                    </span>
+                  )}
                 </div>
-                <p className="text-[11px] text-emerald-200 font-medium flex items-center gap-1">
-                  <span>🟢 Online • Replies in &lt; 1 minute</span>
-                </p>
+                {!isMinimized && (
+                  <p className="text-[11px] text-emerald-200 font-medium flex items-center gap-1">
+                    <span>🟢 Online • Replies in &lt; 1 minute</span>
+                  </p>
+                )}
               </div>
             </div>
 
@@ -700,9 +784,10 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => setIsMinimized(!isMinimized)}
+                onClick={toggleChatMinimize}
                 className="p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer"
                 title={isMinimized ? 'Expand' : 'Minimize'}
+                aria-label={isMinimized ? 'Expand support chat' : 'Minimize support chat'}
               >
                 {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
               </button>
