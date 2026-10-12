@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   X,
   Send,
@@ -9,7 +9,8 @@ import {
   Maximize2,
   MessageCircle,
   ShieldCheck,
-  GripVertical
+  GripVertical,
+  EyeOff
 } from 'lucide-react';
 import { HOTSHOT_QUESTIONS } from '../data/hotshotQuestions';
 import { ROUND_QUESTIONS } from '../data/roundQuestions';
@@ -118,6 +119,95 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
       if (fabPosition) localStorage.setItem('patente_chatbot_fab_pos', JSON.stringify(fabPosition));
     } catch {}
   }, [fabPosition]);
+
+  // Remember the dragged position of the open chat window across reloads
+  const [chatWindowPos, setChatWindowPos] = useState<{ x: number; y: number } | null>(() => {
+    try {
+      const raw = localStorage.getItem('patente_chatbot_win_pos');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { x: number; y: number };
+      if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
+        return { x: Math.max(8, parsed.x), y: Math.max(8, parsed.y) };
+      }
+    } catch {}
+    return null;
+  });
+
+  useEffect(() => {
+    try {
+      if (chatWindowPos) localStorage.setItem('patente_chatbot_win_pos', JSON.stringify(chatWindowPos));
+    } catch {}
+  }, [chatWindowPos]);
+
+  const chatWinRef = useRef<HTMLDivElement>(null);
+  const chatDragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
+  const chatWasDraggingRef = useRef(false);
+
+  const clampChatPosition = useCallback((x: number, y: number) => {
+    const el = chatWinRef.current;
+    const width = el?.offsetWidth || 460;
+    const height = el?.offsetHeight || 540;
+    const safeBottom = window.innerWidth < 768 ? 90 : 12;
+    return {
+      x: Math.max(8, Math.min(window.innerWidth - width - 8, x)),
+      y: Math.max(8, Math.min(window.innerHeight - height - safeBottom, y)),
+    };
+  }, []);
+
+  // Drag the open chat window freely by its header (mouse + touch)
+  const handleChatPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    // Header buttons and the message input must stay clickable
+    if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+
+    const rect = chatWinRef.current?.getBoundingClientRect();
+    chatDragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialX: rect?.left ?? 0,
+      initialY: rect?.top ?? 0,
+    };
+    chatWasDraggingRef.current = false;
+  };
+
+  const handleChatPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!chatDragRef.current) return;
+
+    const deltaX = e.clientX - chatDragRef.current.startX;
+    const deltaY = e.clientY - chatDragRef.current.startY;
+
+    if (Math.hypot(deltaX, deltaY) > 6) {
+      chatWasDraggingRef.current = true;
+    }
+
+    if (chatWasDraggingRef.current) {
+      setChatWindowPos(
+        clampChatPosition(chatDragRef.current.initialX + deltaX, chatDragRef.current.initialY + deltaY)
+      );
+    }
+  };
+
+  const handleChatPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    try {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+    } catch {}
+    chatDragRef.current = null;
+  };
+
+  // Keep a dragged chat window fully inside the viewport on resize/rotation
+  useEffect(() => {
+    const onResize = () => {
+      setChatWindowPos((prev) => (prev ? clampChatPosition(prev.x, prev.y) : prev));
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [clampChatPosition]);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
   const fabRef = useRef<HTMLDivElement>(null);
@@ -468,23 +558,21 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
 
   return (
     <>
-      <div
-        ref={fabRef}
-        style={
-          fabPosition && !isOpen
-            ? { position: 'fixed', left: `${fabPosition.x}px`, top: `${fabPosition.y}px`, zIndex: 50 }
-            : undefined
-        }
-        className={
-          isOpen
-            ? 'fixed bottom-3 sm:bottom-6 right-2 sm:right-6 z-50 flex flex-col items-end'
-            : !fabPosition
-            ? 'fixed bottom-52 sm:bottom-48 md:bottom-6 right-3 sm:right-6 z-50 flex flex-col items-end'
-            : ''
-        }
-      >
-        {/* Moveable Support Nav — compact circle on mobile, full pill on desktop */}
-        {!isOpen && !isDocked && (
+      {/* Moveable Support Nav — compact circle on mobile, full pill on desktop */}
+      {!isOpen && !isDocked && (
+        <div
+          ref={fabRef}
+          style={
+            fabPosition
+              ? { position: 'fixed', left: `${fabPosition.x}px`, top: `${fabPosition.y}px`, zIndex: 50 }
+              : undefined
+          }
+          className={
+            !fabPosition
+              ? 'fixed bottom-52 sm:bottom-48 md:bottom-6 right-3 sm:right-6 z-50 flex flex-col items-end'
+              : ''
+          }
+        >
           <div
             role="button"
             tabIndex={0}
@@ -543,12 +631,21 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
-        )}
+        </div>
+      )}
 
-      {/* Authentic WhatsApp Chat Window */}
+      {/* Authentic WhatsApp Chat Window — drag it anywhere by its header */}
       {isOpen && (
         <div
+          ref={chatWinRef}
+          style={
+            chatWindowPos
+              ? { position: 'fixed', left: `${chatWindowPos.x}px`, top: `${chatWindowPos.y}px`, zIndex: 60 }
+              : undefined
+          }
           className={`flex flex-col bg-[#EFEAE2] dark:bg-[#0B141A] border border-emerald-800/40 rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 ${
+            chatWindowPos ? '' : 'fixed bottom-3 sm:bottom-6 right-2 sm:right-6 z-50'
+          } ${
             currentTheme === 'sepia' ? 'theme-sepia' : currentTheme === 'dark' ? 'dark' : ''
           } ${
             isMinimized
@@ -556,8 +653,15 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
               : 'w-[94vw] sm:w-[420px] md:w-[460px] h-[540px] max-h-[calc(100vh-160px)] md:max-h-[85vh]'
           }`}
         >
-          {/* WhatsApp Header: Deep Emerald Green (#075E54) */}
-          <div className="bg-[#075E54] dark:bg-[#1F2C34] p-3 sm:p-3.5 text-white flex items-center justify-between shadow-md shrink-0">
+          {/* WhatsApp Header: Deep Emerald Green (#075E54) — drag handle for the whole window */}
+          <div
+            onPointerDown={handleChatPointerDown}
+            onPointerMove={handleChatPointerMove}
+            onPointerUp={handleChatPointerUp}
+            onPointerCancel={handleChatPointerUp}
+            className="bg-[#075E54] dark:bg-[#1F2C34] p-3 sm:p-3.5 text-white flex items-center justify-between shadow-md shrink-0 select-none touch-none cursor-grab active:cursor-grabbing"
+            title="Drag to move the chat anywhere"
+          >
             <div className="flex items-center gap-2.5">
               <div className="relative">
                 <div className="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center text-white font-bold text-sm shadow-inner border border-white/30">
@@ -579,6 +683,21 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
             </div>
 
             <div className="flex items-center gap-1 text-white/90">
+              <span className="hidden sm:flex p-1.5 text-emerald-200/80" title="Drag to move the chat anywhere">
+                <GripVertical className="w-4 h-4" />
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsMinimized(false);
+                  setIsDocked(true);
+                }}
+                className="p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer"
+                title="Hide under small Support tab"
+              >
+                <EyeOff className="w-4 h-4" />
+              </button>
               <button
                 type="button"
                 onClick={() => setIsMinimized(!isMinimized)}
@@ -788,19 +907,24 @@ export const PatenteChatbot: React.FC<PatenteChatbotProps> = ({
           )}
         </div>
       )}
-    </div>
 
-    {/* Right-Edge Docked Trigger (Small button on the right side of the screen) */}
+    {/* Right-Edge Docked Trigger (Small nav tab — restores the support chat) */}
     {!isOpen && isDocked && (
       <button
         type="button"
         onClick={() => {
           setIsDocked(false);
+          setIsOpen(true);
+          setIsMinimized(false);
         }}
         style={{
-          top: fabPosition ? `${Math.max(80, Math.min(window.innerHeight - 140, fabPosition.y))}px` : undefined,
+          top: chatWindowPos
+            ? `${Math.max(8, Math.min(window.innerHeight - 140, chatWindowPos.y))}px`
+            : fabPosition
+            ? `${Math.max(80, Math.min(window.innerHeight - 140, fabPosition.y))}px`
+            : undefined,
         }}
-        className={`fixed right-0 ${!fabPosition ? 'bottom-52 sm:bottom-48 md:bottom-6' : ''} z-40 bg-[#25D366] hover:bg-[#20bd5a] text-white py-2 pl-2.5 pr-2 rounded-l-2xl shadow-2xl border-l-2 border-y-2 border-white/60 flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer group animate-fadeIn`}
+        className={`fixed right-0 ${!fabPosition && !chatWindowPos ? 'bottom-52 sm:bottom-48 md:bottom-6' : ''} z-40 bg-[#25D366] hover:bg-[#20bd5a] text-white py-2 pl-2.5 pr-2 rounded-l-2xl shadow-2xl border-l-2 border-y-2 border-white/60 flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer group animate-fadeIn`}
         title="লাইভ সাপোর্ট আবার দেখান (Click or touch to restore Live Support)"
       >
         <span className="relative flex h-2 w-2 shrink-0">
