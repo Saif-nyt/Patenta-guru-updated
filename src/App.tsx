@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense, useCallback, useMemo } from 'react';
 import { Header } from './components/Header';
 import type { NavTab } from './components/Header';
 import { AppNavigation } from './components/AppNavigation';
@@ -36,9 +36,12 @@ import { getLatestExamDraft } from './services/examDraftService';
 import type { ExamDraft } from './services/examDraftService';
 
 // Lazy-loaded heavy components (saves >2MB on initial mobile download!)
-const TheorySummaryView = lazy(() => import('./components/TheorySummaryView').then(m => ({ default: m.TheorySummaryView })));
-const ExamSimulator = lazy(() => import('./components/ExamSimulator').then(m => ({ default: m.ExamSimulator })));
-const MistakeReview = lazy(() => import('./components/MistakeReview').then(m => ({ default: m.MistakeReview })));
+const loadTheoryView = () => import('./components/TheorySummaryView');
+const loadExamSimulator = () => import('./components/ExamSimulator');
+const loadMistakeReview = () => import('./components/MistakeReview');
+const TheorySummaryView = lazy(() => loadTheoryView().then(m => ({ default: m.TheorySummaryView })));
+const ExamSimulator = lazy(() => loadExamSimulator().then(m => ({ default: m.ExamSimulator })));
+const MistakeReview = lazy(() => loadMistakeReview().then(m => ({ default: m.MistakeReview })));
 const AdminCrmDashboard = lazy(() => import('./components/AdminCrmDashboard').then(m => ({ default: m.AdminCrmDashboard })));
 const AdminLoginModal = lazy(() => import('./components/AdminLoginModal').then(m => ({ default: m.AdminLoginModal })));
 const AboutModal = lazy(() => import('./components/AboutModal').then(m => ({ default: m.AboutModal })));
@@ -111,6 +114,35 @@ export function App() {
   useEffect(() => {
     trackPageView(appTab);
   }, [appTab]);
+
+  // Jump back to the top when a new page opens so it feels instant
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [appTab]);
+
+  // Warm up heavy tab chunks while the browser is idle, so switching to
+  // Exam / Theory / Errors never shows the loading spinner.
+  useEffect(() => {
+    const idle = (cb: () => void) =>
+      typeof window.requestIdleCallback === 'function'
+        ? window.requestIdleCallback(() => cb(), { timeout: 4000 })
+        : window.setTimeout(cb, 2500);
+    const cancelIdle = (handle: number) => {
+      if (typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(handle);
+      } else {
+        window.clearTimeout(handle);
+      }
+    };
+
+    const handle = idle(() => {
+      loadTheoryView().catch(() => {});
+      loadExamSimulator().catch(() => {});
+      loadMistakeReview().catch(() => {});
+    });
+
+    return () => cancelIdle(handle);
+  }, []);
 
   useEffect(() => {
     if (themeToast) {
@@ -224,14 +256,14 @@ export function App() {
     setCurrentUser(null);
   };
 
-  const requireLogin = (action = 'কুইজ ও রাউন্ড শুরু করতে'): boolean => {
+  const requireLogin = useCallback((action = 'কুইজ ও রাউন্ড শুরু করতে'): boolean => {
     if (!currentUser) {
-      setAuthForcedMessage(`${action} দয়া করে আপনার ফ্রি স্টুডেন্ট অ্যাকাউন্টে সাইন ইন করুন অথবা নতুন ফ্রি অ্যাকাউন্ট খুলুন। কোনো প্রশ্ন দেখতে বা সমাধান করতে লগইন বাধ্যতামূলক।`);
+      setAuthForcedMessage(`${action} দয়া করে আপনার ফ্রি স্টুডেন্ট অ্যাকাউন্টে সাইন ইন করুন অথবা নতুন ফ্রি অ্যাকাউন্ট খুলুন। কোনো প্রশ্ন দেখতে বা সমাধান করতে লগইন বাধ্যতামূলক।`);
       setIsAuthModalOpen(true);
       return false;
     }
     return true;
-  };
+  }, [currentUser]);
 
   // Student Lead Registration State
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
@@ -355,6 +387,12 @@ export function App() {
   // Effective sequential unlocked round derived strictly from passed rounds
   const effectiveUnlockedRound = getSequentialUnlockedRound(completedRounds);
 
+  // Memoized so the keep-alive dashboard panel keeps a stable prop identity
+  const completedRoundsCount = useMemo(
+    () => Object.values(completedRounds || {}).filter((r) => r?.passed).length,
+    [completedRounds]
+  );
+
   // Sync unlockedRound with real sequential progress (cleans up any previous bug data)
   useEffect(() => {
     setUnlockedRound(effectiveUnlockedRound);
@@ -464,15 +502,15 @@ export function App() {
     }
   }, [appTab]);
 
-  const handleResumeExam = (draft: ExamDraft) => {
+  const handleResumeExam = useCallback((draft: ExamDraft) => {
     if (!requireLogin('পরীক্ষা চালিয়ে যেতে')) {
       return;
     }
     setCurrentRoundId(draft.roundId);
     setAppTab('exam');
-  };
+  }, [requireLogin, setCurrentRoundId]);
 
-  const handleStartRound = (roundId: number) => {
+  const handleStartRound = useCallback((roundId: number) => {
     // Strict authentication gate: nobody can access questions without login
     if (!requireLogin('রাউন্ড শুরু করতে')) {
       return;
@@ -492,7 +530,21 @@ export function App() {
     setCurrentRoundId(roundId);
     setAppTab('exam');
     trackViewContent(`Round #${roundId}`, roundId <= appSettings.freeRoundsLimit ? 'Free Quiz Round' : 'Pro Round');
-  };
+  }, [requireLogin, setCurrentRoundId, appSettings.freeRoundsLimit, isVip, effectiveUnlockedRound]);
+
+  // Stable navigation callbacks so memoized tab panels skip re-render on tab switches
+  const goToCurriculum = useCallback(() => setAppTab('curriculum'), []);
+  const goToTheory = useCallback(() => setAppTab('theory'), []);
+  const goToExamFromPanel = useCallback(() => {
+    if (!requireLogin('অফিসিয়াল পরীক্ষা শুরু করতে')) return;
+    setCurrentRoundId(null);
+    setAppTab('exam');
+  }, [requireLogin, setCurrentRoundId]);
+  const goToErrorsFromPanel = useCallback(() => {
+    if (!requireLogin('ভুলের খাতা দেখতে')) return;
+    setAppTab('errors');
+  }, [requireLogin]);
+  const openEnrollment = useCallback(() => setIsPaymentModalOpen(true), []);
 
   const handleSelectTab = (tab: NavTab) => {
     if (['exam', 'hotshot', 'topics', 'mistakes'].includes(tab)) {
@@ -593,6 +645,14 @@ export function App() {
     }
     setIsInvoiceModalOpen(true);
   };
+
+  // Keep-alive bookkeeping: once a panel is mounted it stays mounted (hidden via CSS)
+  // so switching tabs never re-creates the heavy 240-round grid or dashboard DOM.
+  const [visitedTabs, setVisitedTabs] = useState<ReadonlySet<string>>(() => new Set(['dashboard']));
+  if (!visitedTabs.has(appTab)) {
+    setVisitedTabs(new Set(visitedTabs).add(appTab));
+  }
+  const isCurriculumMounted = visitedTabs.has('curriculum');
 
   return (
     <div
@@ -708,47 +768,44 @@ export function App() {
             </div>
           </div>
         }>
-          {appTab === 'dashboard' && (
+          {/* Keep-alive Dashboard Panel (mounted once, hidden via CSS when inactive) */}
+          <div className={appTab === 'dashboard' ? undefined : 'hidden'}>
             <StudentDashboardView
               student={currentUser}
               activeRound={effectiveUnlockedRound}
-              completedRoundsCount={Object.values(completedRounds || {}).filter(r => r?.passed).length}
+              completedRoundsCount={completedRoundsCount}
               totalQuestionsSolved={totalQuestionsAnswered}
               errorCount={mistakeIds.length}
               isVip={isVip}
               freeRoundsLimit={appSettings.freeRoundsLimit}
               academyPriceEur={appSettings.academyPriceEur}
               regularPriceEur={appSettings.regularPriceEur}
-              onContinueRound={(r) => handleStartRound(r)}
+              onContinueRound={handleStartRound}
               resumeExamDraft={resumeDraft}
               onResumeExam={handleResumeExam}
-              onGoToCurriculum={() => setAppTab('curriculum')}
-              onGoToTheory={() => setAppTab('theory')}
-              onGoToExam={() => {
-                if (!requireLogin('অফিসিয়াল পরীক্ষা শুরু করতে')) return;
-                setCurrentRoundId(null);
-                setAppTab('exam');
-              }}
-              onGoToErrors={() => {
-                if (!requireLogin('ভুলের খাতা দেখতে')) return;
-                setAppTab('errors');
-              }}
-              onOpenEnrollment={() => setIsPaymentModalOpen(true)}
+              onGoToCurriculum={goToCurriculum}
+              onGoToTheory={goToTheory}
+              onGoToExam={goToExamFromPanel}
+              onGoToErrors={goToErrorsFromPanel}
+              onOpenEnrollment={openEnrollment}
             />
-          )}
+          </div>
 
-          {appTab === 'curriculum' && (
-            <RoundsCurriculumView
-              currentRoundId={effectiveUnlockedRound}
-              unlockedRound={effectiveUnlockedRound}
-              isVip={isVip}
-              freeRoundsLimit={appSettings.freeRoundsLimit}
-              academyPriceEur={appSettings.academyPriceEur}
-              regularPriceEur={appSettings.regularPriceEur}
-              onSelectRound={handleStartRound}
-              onTriggerEnrollment={(_r) => setIsPaymentModalOpen(true)}
-              completedRounds={completedRounds}
-            />
+          {/* Keep-alive 240 Rounds Curriculum Panel (mounted once, hidden via CSS when inactive) */}
+          {isCurriculumMounted && (
+            <div className={appTab === 'curriculum' ? undefined : 'hidden'}>
+              <RoundsCurriculumView
+                currentRoundId={effectiveUnlockedRound}
+                unlockedRound={effectiveUnlockedRound}
+                isVip={isVip}
+                freeRoundsLimit={appSettings.freeRoundsLimit}
+                academyPriceEur={appSettings.academyPriceEur}
+                regularPriceEur={appSettings.regularPriceEur}
+                onSelectRound={handleStartRound}
+                onTriggerEnrollment={openEnrollment}
+                completedRounds={completedRounds}
+              />
+            </div>
           )}
 
           {appTab === 'theory' && (

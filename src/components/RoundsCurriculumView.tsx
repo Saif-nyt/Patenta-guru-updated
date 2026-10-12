@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   CheckCircle2, 
   Lock, 
@@ -20,7 +20,7 @@ interface RoundsCurriculumViewProps {
   completedRounds?: Record<number, { errors: number; passed: boolean }>;
 }
 
-export const RoundsCurriculumView: React.FC<RoundsCurriculumViewProps> = ({
+const RoundsCurriculumViewBase: React.FC<RoundsCurriculumViewProps> = ({
   currentRoundId: _currentRoundId,
   unlockedRound: _unlockedRound,
   isVip = false,
@@ -39,49 +39,58 @@ export const RoundsCurriculumView: React.FC<RoundsCurriculumViewProps> = ({
 
   // Total 240 rounds
   const totalRounds = 240;
-  // Strict sequential unlock: round N+1 is unlocked only if rounds 1..N have been completed and passed.
-  const safeCompleted = completedRounds || {};
+  // Stable identity (even when the prop is undefined) so memoized lists only
+  // recompute when the actual progress object changes.
+  const safeCompleted = useMemo(() => completedRounds || {}, [completedRounds]);
   let sequentialUnlocked = 1;
   while (safeCompleted[sequentialUnlocked]?.passed === true && sequentialUnlocked < totalRounds) {
     sequentialUnlocked++;
   }
   const effectiveUnlocked = sequentialUnlocked;
 
-  const rounds = Array.from({ length: totalRounds }, (_, i) => {
-    const id = i + 1;
-    const isFree = id <= effectiveFreeLimit;
-    const result = safeCompleted[id];
-    
-    // Resolve unique official Italian and Bangla topic for every round 1 to 240
-    const topic = getRoundTopic(id);
+  const rounds = useMemo(
+    () =>
+      Array.from({ length: totalRounds }, (_, i) => {
+        const id = i + 1;
+        const isFree = id <= effectiveFreeLimit;
+        const result = safeCompleted[id];
 
-    return {
-      id,
-      isFree,
-      titleIt: topic.titleIt,
-      titleBn: topic.titleBn,
-      badgeIt: topic.badgeIt,
-      badgeBn: topic.badgeBn,
-      category: topic.category,
-      result,
-    };
-  });
+        // Resolve unique official Italian and Bangla topic for every round 1 to 240
+        const topic = getRoundTopic(id);
 
-  const filteredRounds = rounds.filter((r) => {
-    if (filterTab === 'free' && !r.isFree) return false;
-    if (filterTab === 'pro' && r.isFree) return false;
-    if (filterTab === 'passed' && !r.result?.passed) return false;
+        return {
+          id,
+          isFree,
+          titleIt: topic.titleIt,
+          titleBn: topic.titleBn,
+          badgeIt: topic.badgeIt,
+          badgeBn: topic.badgeBn,
+          category: topic.category,
+          result,
+        };
+      }),
+    [effectiveFreeLimit, safeCompleted]
+  );
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      const matchNum = String(r.id) === q || `round ${r.id}`.includes(q) || `রাউন্ড ${r.id}`.includes(q);
-      const matchTopicIt = r.titleIt.toLowerCase().includes(q) || (r.badgeIt && r.badgeIt.toLowerCase().includes(q));
-      const matchTopicBn = r.titleBn.toLowerCase().includes(q) || (r.badgeBn && r.badgeBn.toLowerCase().includes(q));
-      return matchNum || matchTopicIt || matchTopicBn;
-    }
+  const filteredRounds = useMemo(
+    () =>
+      rounds.filter((r) => {
+        if (filterTab === 'free' && !r.isFree) return false;
+        if (filterTab === 'pro' && r.isFree) return false;
+        if (filterTab === 'passed' && !r.result?.passed) return false;
 
-    return true;
-  });
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase().trim();
+          const matchNum = String(r.id) === q || `round ${r.id}`.includes(q) || `রাউন্ড ${r.id}`.includes(q);
+          const matchTopicIt = r.titleIt.toLowerCase().includes(q) || (r.badgeIt && r.badgeIt.toLowerCase().includes(q));
+          const matchTopicBn = r.titleBn.toLowerCase().includes(q) || (r.badgeBn && r.badgeBn.toLowerCase().includes(q));
+          return matchNum || matchTopicIt || matchTopicBn;
+        }
+
+        return true;
+      }),
+    [rounds, filterTab, searchQuery]
+  );
 
   const freeRoundsCount = effectiveFreeLimit;
   const proRoundsCount = Math.max(0, totalRounds - effectiveFreeLimit);
@@ -213,7 +222,7 @@ export const RoundsCurriculumView: React.FC<RoundsCurriculumViewProps> = ({
           return (
             <div
               key={round.id}
-              className={`rounded-2xl border p-5 sm:p-5.5 transition-all duration-200 transform hover:-translate-y-1 hover:shadow-xl relative flex flex-col justify-between min-h-[225px] ${
+              className={`rounded-2xl border p-5 sm:p-5.5 transition-all duration-200 transform hover:-translate-y-1 hover:shadow-xl relative flex flex-col justify-between min-h-[225px] [content-visibility:auto] [contain-intrinsic-size:auto_245px] ${
                 isCurrent
                   ? 'bg-white dark:bg-[#161C28] border-slate-900/30 dark:border-[#FB6C00]/40 ring-2 ring-slate-900/10 dark:ring-[#FB6C00]/20 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_0_20px_rgba(251,108,0,0.15)]'
                   : isPassed
@@ -348,3 +357,5 @@ export const RoundsCurriculumView: React.FC<RoundsCurriculumViewProps> = ({
     </div>
   );
 };
+
+export const RoundsCurriculumView = React.memo(RoundsCurriculumViewBase);

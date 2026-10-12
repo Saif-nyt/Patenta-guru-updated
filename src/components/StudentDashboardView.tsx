@@ -65,7 +65,7 @@ interface StudentDashboardViewProps {
   onOpenEnrollment: () => void;
 }
 
-export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
+const StudentDashboardViewBase: React.FC<StudentDashboardViewProps> = ({
   student,
   activeRound,
   completedRoundsCount,
@@ -505,3 +505,5 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
     </div>
   );
 };
+
+export const StudentDashboardView = React.memo(StudentDashboardViewBase);
