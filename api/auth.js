@@ -3,9 +3,12 @@ import dns from 'node:dns/promises';
 import nodemailer from 'nodemailer';
 import { getCollection } from './_db.js';
 
-const JWT_SECRET = process.env.JWT_SECRET?.trim();
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET must be configured in the environment');
+function getJwtSecret() {
+  const secret = process.env.JWT_SECRET?.trim();
+  if (!secret) {
+    throw new Error('JWT_SECRET must be configured in the environment');
+  }
+  return secret;
 }
 
 const AUTHORIZED_ADMIN_EMAILS = [
@@ -274,7 +277,7 @@ function signToken(payload) {
     })
   ).toString('base64url');
   const signature = crypto
-    .createHmac('sha256', JWT_SECRET)
+    .createHmac('sha256', getJwtSecret())
     .update(`${header}.${body}`)
     .digest('base64url');
   return `${header}.${body}.${signature}`;
@@ -287,7 +290,7 @@ function verifyToken(token) {
     if (parts.length !== 3) return null;
     const [header, body, signature] = parts;
     const expectedSig = crypto
-      .createHmac('sha256', JWT_SECRET)
+      .createHmac('sha256', getJwtSecret())
       .update(`${header}.${body}`)
       .digest('base64url');
     if (signature !== expectedSig) return null;
@@ -318,6 +321,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    getJwtSecret();
     const col = await getCollection('students');
 
     // GET /api/auth -> Verify current session token and return fresh student record

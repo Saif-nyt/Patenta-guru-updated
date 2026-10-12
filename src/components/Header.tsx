@@ -77,7 +77,7 @@ export const Header: React.FC<HeaderProps> = ({
     };
   }, [isProfileOpen]);
   return (
-    <header className="sticky top-0 z-50 w-full bg-white/[0.98] dark:bg-[#0D1117]/[0.98] border-b border-slate-200 dark:border-white/10 shadow-sm transition-colors">
+    <header className="relative z-50 w-full bg-white/[0.98] dark:bg-[#0D1117]/[0.98] border-b border-slate-200 dark:border-white/10 shadow-sm transition-colors">
       <div className="max-w-[1600px] mx-auto px-[15px] py-3.5 sm:py-5 space-y-3 sm:space-y-4">
         {/* Top Line: Brand & VIP Upgrade Action */}
         <div className="flex items-center justify-between gap-3 sm:gap-4 flex-wrap sm:flex-nowrap">

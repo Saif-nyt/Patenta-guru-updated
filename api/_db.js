@@ -1,8 +1,11 @@
 import { MongoClient } from 'mongodb';
 
-const MONGODB_URI = process.env.MONGODB_URI?.trim();
-if (!MONGODB_URI) {
-  throw new Error('MONGODB_URI must be configured in the environment');
+function getMongoUri() {
+  const uri = process.env.MONGODB_URI?.trim();
+  if (!uri) {
+    throw new Error('MONGODB_URI must be configured in the environment');
+  }
+  return uri;
 }
 
 const DB_NAME = 'patente_bangla';
@@ -15,7 +18,7 @@ const options = {
 
 function getClientPromise() {
   if (!global._mongoClientPromise) {
-    const client = new MongoClient(MONGODB_URI, options);
+    const client = new MongoClient(getMongoUri(), options);
     global._mongoClientPromise = client.connect().catch((err) => {
       global._mongoClientPromise = null;
       throw err;

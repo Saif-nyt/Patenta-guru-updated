@@ -85,12 +85,27 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
   onOpenEnrollment,
 }) => {
   const dynamicStreak = getDynamicStreak();
-  const maxRounds = isVip ? 240 : Math.min(240, Math.max(0, freeRoundsLimit));
+  const safeFreeRoundsLimit = Number.isFinite(freeRoundsLimit) ? freeRoundsLimit : 20;
+  const maxRounds = isVip ? 240 : Math.min(240, Math.max(0, safeFreeRoundsLimit));
+  const safeCompletedRoundsCount = Number.isFinite(completedRoundsCount)
+    ? Math.max(0, completedRoundsCount)
+    : 0;
+  const safeTotalQuestionsSolved = Number.isFinite(totalQuestionsSolved)
+    ? Math.max(0, totalQuestionsSolved)
+    : 0;
+  const safeErrorCount = Number.isFinite(errorCount) ? Math.max(0, errorCount) : 0;
   // Readiness score estimation based on actual progress
-  const roundRatio = Math.min(1, completedRoundsCount / maxRounds);
-  const questionsRatio = Math.min(1, totalQuestionsSolved / 150);
-  const errorPenalty = totalQuestionsSolved > 20 ? Math.min(0.2, (errorCount / totalQuestionsSolved)) : 0;
-  const readinessScore = Math.min(100, Math.max(10, Math.round((roundRatio * 0.65 + questionsRatio * 0.35 - errorPenalty) * 100)));
+  const roundRatio = maxRounds > 0 ? Math.min(1, safeCompletedRoundsCount / maxRounds) : 0;
+  const questionsRatio = Math.min(1, safeTotalQuestionsSolved / 150);
+  const errorPenalty = safeTotalQuestionsSolved > 20
+    ? Math.min(0.2, safeErrorCount / safeTotalQuestionsSolved)
+    : 0;
+  const calculatedReadiness = Math.round(
+    (roundRatio * 0.65 + questionsRatio * 0.35 - errorPenalty) * 100
+  );
+  const readinessScore = Number.isFinite(calculatedReadiness)
+    ? Math.min(100, Math.max(0, calculatedReadiness))
+    : 0;
 
   return (
     <div className="space-y-6 pb-24 md:pb-12">
@@ -256,7 +271,11 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
               Official Exam Pass Probability
             </p>
             <span className="text-[11px] text-slate-400 font-semibold">
-              {readinessScore > 75 ? 'Excellent Progress!' : 'Keep practicing daily'}
+              {safeTotalQuestionsSolved === 0 && safeCompletedRoundsCount === 0
+                ? 'Start practicing to build readiness'
+                : readinessScore > 75
+                  ? 'Excellent Progress!'
+                  : 'Keep practicing daily'}
             </span>
           </div>
         </div>

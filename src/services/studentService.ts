@@ -310,8 +310,9 @@ export const loginStudentWithGoogle = async (): Promise<{
     throw new Error('Could not retrieve email address from Google account.');
   }
 
+  let res: Response;
   try {
-    const res = await fetch('/api/auth', {
+    res = await fetch('/api/auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -321,36 +322,38 @@ export const loginStudentWithGoogle = async (): Promise<{
         googleUid: user.uid,
       }),
     });
-
-    const contentType = res.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
-      const data = await res.json();
-      if (res.ok && data.student) {
-        const safeProfile = sanitizeStudentProfile(data.student);
-        cacheStudentLocally(safeProfile, data.token);
-        notifyAuthChange(safeProfile);
-        return {
-          student: safeProfile,
-          isNewStudent: Boolean(data.isNewStudent),
-        };
-      }
-    }
   } catch (err) {
     console.warn('MongoDB /api/auth google sync fallback notice:', err);
+    const fallbackProfile = sanitizeStudentProfile({
+      uid: user.uid || 'std_' + Date.now(),
+      name: cleanName,
+      email: cleanEmail,
+      phone: 'Google Verified',
+      unlockedRound: 1,
+      isVip: false,
+    });
+    cacheStudentLocally(fallbackProfile);
+    notifyAuthChange(fallbackProfile);
+    return { student: fallbackProfile, isNewStudent: false };
   }
 
-  // Fallback local profile if offline
-  const fallbackProfile = sanitizeStudentProfile({
-    uid: user.uid || 'std_' + Date.now(),
-    name: cleanName,
-    email: cleanEmail,
-    phone: 'Google Verified',
-    unlockedRound: 1,
-    isVip: false,
-  });
-  cacheStudentLocally(fallbackProfile);
-  notifyAuthChange(fallbackProfile);
-  return { student: fallbackProfile, isNewStudent: false };
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(`Google sign-in server returned an invalid response (HTTP ${res.status}).`);
+  }
+
+  const data = await res.json();
+  if (!res.ok || !data.student) {
+    throw new Error(data.error || `Google sign-in could not be saved (HTTP ${res.status}).`);
+  }
+
+  const safeProfile = sanitizeStudentProfile(data.student);
+  cacheStudentLocally(safeProfile, data.token);
+  notifyAuthChange(safeProfile);
+  return {
+    student: safeProfile,
+    isNewStudent: Boolean(data.isNewStudent),
+  };
 };
 
 // Log out student

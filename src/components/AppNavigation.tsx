@@ -57,7 +57,7 @@ export const AppNavigation: React.FC<AppNavigationProps> = ({
   return (
     <>
       {/* Desktop & Tablet Top Tab Navigation Bar (Adaptive Cockpit Style) */}
-      <nav className="hidden md:block bg-white/[0.97] dark:bg-[#0D1117]/[0.97] border-b border-slate-200 dark:border-white/10 sticky top-[80px] sm:top-[88px] z-30 shadow-xs dark:shadow-xl transition-colors">
+      <nav className="hidden md:block bg-white/[0.97] dark:bg-[#0D1117]/[0.97] border-b border-slate-200 dark:border-white/10 relative z-30 shadow-xs dark:shadow-xl transition-colors">
         <div className="max-w-[1600px] mx-auto px-[15px] py-3 sm:py-4">
           <div 
             className="flex items-center justify-start xl:justify-center gap-2.5 lg:gap-4 overflow-x-auto no-scrollbar scrollbar-none py-1 px-1"

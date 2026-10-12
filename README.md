@@ -47,7 +47,7 @@ npm run dev
 
 ### Environment configuration
 
-Copy `.env.example` to `.env` and set the required MongoDB, JWT, Firebase, and email values. Vite loads `.env` for both the frontend and local API handlers; production deployments must set server-side values in the hosting provider's environment configuration.
+Copy `.env.example` to `.env` and set the required MongoDB, JWT, Firebase, and email values. Vite loads `.env` for both the frontend and local API handlers. For Vercel, add `MONGODB_URI` and `JWT_SECRET` in **Project Settings > Environment Variables** for the deployed environment, and add the `VITE_FIREBASE_*` web configuration there as well because Vite embeds it at build time. Redeploy after changing environment variables.
 
 Google sign-in is already available in the student sign-in dialog. To activate it, enable **Authentication > Sign-in method > Google** in Firebase Console and add each local/production hostname to **Authentication > Settings > Authorized domains**. Put Firebase web configuration in the `VITE_FIREBASE_*` variables. Google OAuth client secrets are not used by this Firebase flow and must never be exposed as `VITE_*` variables.
 
