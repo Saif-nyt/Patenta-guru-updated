@@ -254,6 +254,8 @@ export function App() {
   const handleLogout = async () => {
     await logoutStudent();
     setCurrentUser(null);
+    // VIP access belongs to the signed-in account — drop it from this device on sign-out
+    setIsVip(false);
   };
 
   const requireLogin = useCallback((action = 'কুইজ ও রাউন্ড শুরু করতে'): boolean => {
